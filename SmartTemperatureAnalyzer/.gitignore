@@ -1,0 +1,33 @@
+# Build Output
+target/
+!.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+build/
+
+# Local databases and logs
+*.log
+*.db
+*.mv.db
+*.trace.db
+
+# Submission Archives
+*.zip
+*.tar.gz
+
+# IDE and Editor Metadata
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+.classpath
+.project
+.settings/
+.springBeans
+.sts4-cache
+.apt_generated
+
+# OS Specific
+.DS_Store
+Thumbs.db

@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Smart Temperature Analyzer - Monotonic Stack Visualizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .bar-anim {
+            transition: height 0.4s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.3s ease;
+        }
+        .day-card {
+            transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s ease, opacity 0.2s ease, border-color 0.2s ease;
+        }
+        .spinner {
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-top-color: currentColor;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        @keyframes pulse-subtle {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+        .shimmer {
+            animation: pulse-subtle 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen py-8 px-4 font-sans selection:bg-amber-500 selection:text-slate-950">
+
+<div class="max-w-4xl mx-auto space-y-6">
+
+    <!-- Header Section -->
+    <header class="text-center space-y-2">
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-semibold uppercase tracking-wider mb-1">
+            <span>⚡ Monotonic Decreasing Stack</span>
+            <span>•</span>
+            <span>LeetCode 739 (Daily Temperatures)</span>
+        </div>
+        <h1 class="text-3xl sm:text-4xl font-black tracking-tight text-white flex items-center justify-center gap-3">
+            <span>🌡️</span> Smart Temperature Analyzer
+        </h1>
+        <p class="text-sm text-slate-400 max-w-xl mx-auto">
+            Visualizes days until the next warmer temperature in <span class="text-emerald-400 font-semibold">O(n) time</span> using Spring Boot REST API and in-memory/MySQL persistence.
+        </p>
+    </header>
+
+    <!-- Controls Card -->
+    <section class="bg-slate-900 border border-slate-800 rounded-2xl p-5 sm:p-6 shadow-2xl space-y-4">
+        <div class="flex items-center justify-between">
+            <label for="tempInput" class="block text-xs font-bold uppercase tracking-wider text-slate-300">
+                Daily Temperatures (°C)
+            </label>
+            <div id="sourceBadge" class="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-slate-800 text-slate-400 flex items-center gap-1.5 border border-slate-700">
+                <span class="w-2 h-2 rounded-full bg-slate-500"></span>
+                <span>Checking connection...</span>
+            </div>
+        </div>
+
+        <!-- Input & Buttons Row -->
+        <div class="flex flex-col sm:flex-row gap-3">
+            <input
+                id="tempInput"
+                type="text"
+                value="73, 74, 75, 71, 69, 72, 76, 73"
+                placeholder="e.g. 73, 74, 75, 71, 69, 72, 76, 73"
+                class="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-white font-mono text-sm placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition duration-150"
+                onkeydown="if(event.key === 'Enter') analyzeTemperatures()"
+            />
+            <div class="flex gap-2">
+                <button
+                    id="analyzeBtn"
+                    onclick="analyzeTemperatures()"
+                    class="flex-1 sm:flex-none bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 font-bold px-7 py-3 rounded-xl transition duration-150 flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20"
+                >
+                    <span id="btnSpinner" class="hidden w-4 h-4 spinner"></span>
+                    <span id="btnText">Analyze</span>
+                </button>
+                <button
+                    id="clearBtn"
+                    onclick="clearInput()"
+                    title="Clear input"
+                    class="bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-300 font-semibold px-4 py-3 rounded-xl transition duration-150 border border-slate-700 text-xs"
+                >
+                    Clear
+                </button>
+            </div>
+        </div>
+
+        <!-- Inline Error Banner -->
+        <div id="errorBanner" class="hidden p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <span>⚠️</span>
+                <span id="errorMessage">Invalid temperature list.</span>
+            </div>
+            <button onclick="dismissError()" class="text-rose-400 hover:text-rose-200 font-bold ml-2">✕</button>
+        </div>
+
+        <!-- Presets Row -->
+        <div class="pt-1 border-t border-slate-800/80 flex flex-wrap items-center gap-2 text-xs text-slate-400">
+            <span class="font-semibold text-slate-300">Presets:</span>
+            <button onclick="setPreset('73, 74, 75, 71, 69, 72, 76, 73')" class="px-2.5 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-800 hover:text-amber-400 border border-slate-700/60 transition">LeetCode 739</button>
+            <button onclick="setPreset('30, 32, 31, 35, 33, 36, 34')" class="px-2.5 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-800 hover:text-amber-400 border border-slate-700/60 transition">Fluctuating</button>
+            <button onclick="setPreset('30, 40, 50, 60')" class="px-2.5 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-800 hover:text-amber-400 border border-slate-700/60 transition">Strictly Increasing</button>
+            <button onclick="setPreset('60, 50, 40, 30')" class="px-2.5 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-800 hover:text-amber-400 border border-slate-700/60 transition">Strictly Decreasing</button>
+            <button onclick="setPreset('30, 30, 32, 32, 35')" class="px-2.5 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-800 hover:text-amber-400 border border-slate-700/60 transition">With Duplicates</button>
+            <button onclick="setPreset('-5, -2, -10, -1, 3')" class="px-2.5 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-800 hover:text-amber-400 border border-slate-700/60 transition">Sub-Zero</button>
+            <button onclick="setPreset('42')" class="px-2.5 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-800 hover:text-amber-400 border border-slate-700/60 transition">Single Day</button>
+        </div>
+    </section>
+
+    <!-- Visualizer Section -->
+    <section id="outputSection" class="bg-slate-900 border border-slate-800 rounded-2xl p-5 sm:p-6 shadow-2xl space-y-6">
+
+        <!-- Header & Stats Summary -->
+        <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
+            <div>
+                <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                    <span>📊</span> Visual Result
+                </h2>
+                <p class="text-xs text-slate-400" id="resultSubtitle">Interactive temperature timeline</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+                <span id="badgeAlgo" class="px-3 py-1 text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-full">
+                    Monotonic Stack
+                </span>
+                <span id="badgeComplexity" class="px-3 py-1 text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full">
+                    Time: O(n) • Space: O(n)
+                </span>
+            </div>
+        </div>
+
+        <!-- Quick Summary Metrics Bar -->
+        <div id="metricsBar" class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+            <div class="bg-slate-950/60 border border-slate-800 p-2.5 rounded-xl">
+                <div class="text-[11px] text-slate-400 uppercase font-semibold">Total Days</div>
+                <div id="metricTotalDays" class="text-lg font-extrabold text-white mt-0.5">-</div>
+            </div>
+            <div class="bg-slate-950/60 border border-slate-800 p-2.5 rounded-xl">
+                <div class="text-[11px] text-slate-400 uppercase font-semibold">Warmer Days Found</div>
+                <div id="metricWarmerCount" class="text-lg font-extrabold text-amber-400 mt-0.5">-</div>
+            </div>
+            <div class="bg-slate-950/60 border border-slate-800 p-2.5 rounded-xl">
+                <div class="text-[11px] text-slate-400 uppercase font-semibold">Max Temp</div>
+                <div id="metricMaxTemp" class="text-lg font-extrabold text-rose-400 mt-0.5">-</div>
+            </div>
+            <div class="bg-slate-950/60 border border-slate-800 p-2.5 rounded-xl">
+                <div class="text-[11px] text-slate-400 uppercase font-semibold">Min Temp</div>
+                <div id="metricMinTemp" class="text-lg font-extrabold text-sky-400 mt-0.5">-</div>
+            </div>
+        </div>
+
+        <!-- Empty State Container -->
+        <div id="emptyState" class="hidden py-12 text-center space-y-3">
+            <div class="text-4xl">📉</div>
+            <h3 class="text-base font-bold text-white">No Temperature Data</h3>
+            <p class="text-xs text-slate-400 max-w-sm mx-auto">
+                Please enter a comma-separated list of temperatures above or click one of the preset buttons to visualize the algorithm.
+            </p>
+        </div>
+
+        <!-- Cards Grid Container -->
+        <div id="cardsGrid" class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-8 gap-3 min-h-[140px]">
+            <!-- Dynamic day cards generated by JS -->
+        </div>
+
+        <!-- Interactive Highlight & Explanation Banner -->
+        <div id="detailBanner" class="p-4 rounded-xl bg-slate-950 border border-slate-800 text-xs flex items-start sm:items-center gap-3 transition">
+            <span class="text-2xl" id="detailIcon">💡</span>
+            <div class="space-y-0.5">
+                <div id="detailTitle" class="font-bold text-white">Interactive Inspector</div>
+                <div id="detailText" class="text-slate-300">
+                    Hover over or click any day card to highlight its next warmer day and view the step-by-step reasoning.
+                </div>
+            </div>
+        </div>
+
+        <!-- Collapsible Response JSON Preview -->
+        <details class="text-xs bg-slate-950 p-3.5 rounded-xl border border-slate-800 text-slate-400">
+            <summary class="cursor-pointer font-mono text-slate-300 hover:text-amber-400 font-semibold flex items-center justify-between">
+                <span>API JSON Response Data</span>
+                <span class="text-[11px] text-slate-500">Click to expand</span>
+            </summary>
+            <pre id="jsonPreview" class="mt-3 p-3 bg-black/60 rounded-lg overflow-x-auto text-emerald-400 font-mono text-xs"></pre>
+        </details>
+    </section>
+
+    <!-- Recent History Section -->
+    <section class="bg-slate-900 border border-slate-800 rounded-2xl p-5 sm:p-6 shadow-2xl space-y-4">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <span class="text-lg">🗄️</span>
+                <h2 class="text-base font-bold text-white">Database Analysis History</h2>
+                <span id="historyCountBadge" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-800 text-slate-300 border border-slate-700">0</span>
+            </div>
+            <button
+                onclick="loadHistory()"
+                class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300 border border-slate-700 transition flex items-center gap-1.5"
+                title="Refresh history from server"
+            >
+                <span id="historySpinner" class="hidden w-3 h-3 spinner"></span>
+                <span>↻ Refresh</span>
+            </button>
+        </div>
+
+        <p class="text-xs text-slate-400">
+            Past analyses saved to persistence (H2 In-Memory or MySQL). Click <strong class="text-amber-400">"Replay"</strong> on any row to reload those values into the visualizer.
+        </p>
+
+        <!-- History Content Area -->
+        <div id="historyContainer" class="space-y-2">
+            <div class="text-center py-6 text-xs text-slate-500">
+                Loading history...
+            </div>
+        </div>
+    </section>
+
+    <!-- Algorithm Educational Card -->
+    <details class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl text-xs text-slate-300">
+        <summary class="cursor-pointer font-bold text-sm text-amber-400 hover:text-amber-300 flex items-center gap-2">
+            <span>🧠</span> How the Monotonic Stack Algorithm Works
+        </summary>
+        <div class="mt-4 space-y-3 leading-relaxed text-slate-300 border-t border-slate-800 pt-3">
+            <p>
+                <strong>Problem:</strong> Given an array of temperatures, return an array <code class="bg-slate-950 px-1 py-0.5 rounded text-amber-400">answer</code> such that <code class="bg-slate-950 px-1 py-0.5 rounded text-amber-400">answer[i]</code> is the number of days you have to wait after the <code class="bg-slate-950 px-1 py-0.5 rounded">i-th</code> day to get a warmer temperature. If there is no future day with a higher temperature, <code class="bg-slate-950 px-1 py-0.5 rounded text-amber-400">answer[i] = 0</code>.
+            </p>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+                    <span class="font-bold text-rose-400">❌ Brute Force Approach:</span>
+                    <p class="mt-1 text-slate-400">For each day, scan forward linearly until a warmer day is found. Worst-case time complexity: <strong>O(n²)</strong> when temperatures are decreasing.</p>
+                </div>
+                <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+                    <span class="font-bold text-emerald-400">✓ Monotonic Stack Approach:</span>
+                    <p class="mt-1 text-slate-400">Iterate from right to left (backwards) maintaining a stack of indices with decreasing temperatures. Each day is pushed and popped at most once. Runtime: <strong>O(n)</strong>.</p>
+                </div>
+            </div>
+        </div>
+    </details>
+
+    <!-- Footer -->
+    <footer class="text-center text-xs text-slate-500 py-4">
+        SmartTemperatureAnalyzer • Spring Boot 3 + Monotonic Stack • Verified Submission Ready
+    </footer>
+
+</div>
+
+<script>
+    let currentData = null;
+
+    // =======================================================
+    // Local Algorithm Fallback (Equivalent to Java Implementation)
+    // =======================================================
+    function calculateLocal(temperatures) {
+        const n = temperatures.length;
+        const answer = new Array(n).fill(0);
+        const stack = []; // will store indices
+
+        // Traverse backwards
+        for (let i = n - 1; i >= 0; i--) {
+            while (stack.length > 0 && temperatures[stack[stack.length - 1]] <= temperatures[i]) {
+                stack.pop();
+            }
+            if (stack.length > 0) {
+                answer[i] = stack[stack.length - 1] - i;
+            }
+            stack.push(i);
+        }
+
+        return {
+            temperatures: temperatures,
+            waitingDays: answer,
+            algorithm: "Monotonic Stack",
+            timeComplexity: "O(n)"
+        };
+    }
+
+    // Preset helper
+    function setPreset(val) {
+        document.getElementById('tempInput').value = val;
+        dismissError();
+        analyzeTemperatures();
+    }
+
+    function clearInput() {
+        document.getElementById('tempInput').value = '';
+        dismissError();
+        showEmptyState();
+    }
+
+    function dismissError() {
+        document.getElementById('errorBanner').classList.add('hidden');
+    }
+
+    function showError(msg) {
+        const banner = document.getElementById('errorBanner');
+        document.getElementById('errorMessage').textContent = msg;
+        banner.classList.remove('hidden');
+    }
+
+    function showEmptyState() {
+        currentData = null;
+        document.getElementById('cardsGrid').innerHTML = '';
+        document.getElementById('emptyState').classList.remove('hidden');
+        document.getElementById('detailTitle').textContent = "Waiting for input";
+        document.getElementById('detailText').textContent = "Enter temperatures or click a preset to see the visualization.";
+        document.getElementById('detailIcon').textContent = "✍️";
+        document.getElementById('jsonPreview').textContent = "// No data yet";
+        document.getElementById('metricTotalDays').textContent = "0";
+        document.getElementById('metricWarmerCount').textContent = "0";
+        document.getElementById('metricMaxTemp').textContent = "-";
+        document.getElementById('metricMinTemp').textContent = "-";
+        document.getElementById('resultSubtitle').textContent = "0 days analyzed";
+    }
+
+    // =======================================================
+    // Main Analysis Function
+    // =======================================================
+    async function analyzeTemperatures() {
+        dismissError();
+        const inputStr = document.getElementById('tempInput').value.trim();
+        const btnText = document.getElementById('btnText');
+        const btnSpinner = document.getElementById('btnSpinner');
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        const sourceBadge = document.getElementById('sourceBadge');
+
+        if (!inputStr) {
+            showEmptyState();
+            return;
+        }
+
+        // Parse numbers safely
+        const tokens = inputStr.split(',').map(s => s.trim()).filter(s => s !== '');
+        if (tokens.length === 0) {
+            showEmptyState();
+            return;
+        }
+
+        const temps = [];
+        for (const token of tokens) {
+            const num = Number(token);
+            if (isNaN(num)) {
+                showError(`Invalid temperature value "${token}". Please enter valid numbers separated by commas.`);
+                return;
+            }
+            temps.push(num);
+        }
+
+        // Set Loading State
+        analyzeBtn.disabled = true;
+        btnSpinner.classList.remove('hidden');
+        btnText.textContent = "Analyzing...";
+
+        let data = null;
+        let isBackend = false;
+
+        // 1. Attempt Spring Boot REST API
+        try {
+            const response = await fetch('/api/temperatures/analyze', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ temperatures: temps })
+            });
+
+            if (response.ok) {
+                data = await response.json();
+                isBackend = true;
+            } else {
+                const errJson = await response.json().catch(() => null);
+                const msg = errJson && errJson.message ? errJson.message : `Server error (${response.status})`;
+                console.warn("API responded with error:", msg);
+            }
+        } catch (err) {
+            console.warn("Backend API unreachable, using local algorithm fallback:", err);
+        }
+
+        // 2. Fall back to local Monotonic Stack calculation if backend is unreachable
+        if (!data) {
+            data = calculateLocal(temps);
+            isBackend = false;
+        }
+
+        currentData = data;
+
+        // Reset Loading State
+        analyzeBtn.disabled = false;
+        btnSpinner.classList.add('hidden');
+        btnText.textContent = "Analyze";
+
+        // Update Source Badge
+        if (isBackend) {
+            sourceBadge.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-400"></span><span class="text-emerald-400 font-bold">Spring Boot API (Live)</span>';
+        } else {
+            sourceBadge.innerHTML = '<span class="w-2 h-2 rounded-full bg-amber-400"></span><span class="text-amber-400 font-bold">Local Engine (Offline)</span>';
+        }
+
+        // Update Header & JSON Preview
+        document.getElementById('badgeAlgo').textContent = data.algorithm;
+        document.getElementById('badgeComplexity').textContent = `${data.timeComplexity} Time`;
+        document.getElementById('jsonPreview').textContent = JSON.stringify(data, null, 2);
+        document.getElementById('resultSubtitle').textContent = `${data.temperatures.length} day${data.temperatures.length === 1 ? '' : 's'} analyzed`;
+
+        // Update Summary Metrics
+        updateMetrics(data);
+
+        // Render Day Cards
+        document.getElementById('emptyState').classList.add('hidden');
+        renderCards(data);
+
+        // If backend is active, refresh history list to show newly saved record
+        if (isBackend) {
+            loadHistory();
+        }
+    }
+
+    function updateMetrics(data) {
+        const total = data.temperatures.length;
+        const warmerCount = data.waitingDays.filter(w => w > 0).length;
+        const maxTemp = total > 0 ? Math.max(...data.temperatures) : 0;
+        const minTemp = total > 0 ? Math.min(...data.temperatures) : 0;
+
+        document.getElementById('metricTotalDays').textContent = total;
+        document.getElementById('metricWarmerCount').textContent = `${warmerCount} / ${total}`;
+        document.getElementById('metricMaxTemp').textContent = total > 0 ? `${maxTemp}°C` : '-';
+        document.getElementById('metricMinTemp').textContent = total > 0 ? `${minTemp}°C` : '-';
+    }
+
+    // =======================================================
+    // Card Rendering & Dynamic Scaling
+    // =======================================================
+    function renderCards(data) {
+        const grid = document.getElementById('cardsGrid');
+        grid.innerHTML = '';
+
+        if (!data.temperatures || data.temperatures.length === 0) {
+            showEmptyState();
+            return;
+        }
+
+        const minTemp = Math.min(...data.temperatures);
+        const maxTemp = Math.max(...data.temperatures);
+        const range = (maxTemp - minTemp) || 1;
+
+        data.temperatures.forEach((temp, i) => {
+            const wait = data.waitingDays[i];
+            const card = document.createElement('div');
+            card.className = "day-card relative flex flex-col items-center justify-between p-3 rounded-xl border border-slate-800 bg-slate-950 cursor-pointer hover:-translate-y-1 hover:border-amber-500/60";
+            card.dataset.index = i;
+
+            // Height scaling between 25% and 100%
+            const heightPct = Math.max(25, Math.min(100, Math.round(25 + ((temp - minTemp) / range) * 75)));
+
+            // Color palette according to temperature
+            let barColor = 'bg-sky-500';
+            if (temp >= 35) barColor = 'bg-rose-500';
+            else if (temp >= 30) barColor = 'bg-amber-500';
+            else if (temp >= 20) barColor = 'bg-emerald-500';
+            else if (temp < 0) barColor = 'bg-cyan-400';
+
+            card.innerHTML = `
+                <span class="text-[11px] font-mono font-semibold text-slate-400">Day ${i}</span>
+                <div class="my-2 flex flex-col items-center">
+                    <span class="text-sm sm:text-base font-extrabold text-white">${temp}°</span>
+                    <div class="w-3 bg-slate-900 rounded-full h-12 flex flex-col justify-end overflow-hidden my-1 border border-slate-800">
+                        <div class="w-full rounded-full bar-anim ${barColor}" style="height: ${heightPct}%"></div>
+                    </div>
+                </div>
+                <div class="w-full text-center py-1 rounded-lg text-xs font-bold transition ${
+                    wait > 0 
+                        ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30' 
+                        : 'bg-slate-900 text-slate-500 border border-slate-800'
+                }">
+                    ${wait > 0 ? '+' + wait + 'd' : '0d'}
+                </div>
+            `;
+
+            card.addEventListener('mouseenter', () => highlightDay(i));
+            card.addEventListener('click', () => highlightDay(i));
+            card.addEventListener('mouseleave', resetHighlights);
+
+            grid.appendChild(card);
+        });
+
+        resetHighlights();
+    }
+
+    // =======================================================
+    // Interactive Highlight & Inspector Logic
+    // =======================================================
+    function highlightDay(i) {
+        if (!currentData || !currentData.temperatures || currentData.temperatures.length <= i) return;
+
+        const currentTemp = currentData.temperatures[i];
+        const wait = currentData.waitingDays[i];
+        const targetIdx = wait > 0 ? i + wait : null;
+        const allCards = document.querySelectorAll('.day-card');
+        const detailTitle = document.getElementById('detailTitle');
+        const detailText = document.getElementById('detailText');
+        const detailIcon = document.getElementById('detailIcon');
+
+        allCards.forEach((c, idx) => {
+            c.classList.remove('ring-2', 'ring-amber-500', 'ring-emerald-500', 'opacity-30', 'bg-amber-500/10', 'bg-emerald-500/10');
+            if (idx === i) {
+                c.classList.add('ring-2', 'ring-amber-500', 'bg-amber-500/10');
+            } else if (idx === targetIdx) {
+                c.classList.add('ring-2', 'ring-emerald-500', 'bg-emerald-500/10');
+            } else {
+                c.classList.add('opacity-30');
+            }
+        });
+
+        if (wait > 0 && targetIdx !== null) {
+            const targetTemp = currentData.temperatures[targetIdx];
+            detailIcon.textContent = '🎯';
+            detailTitle.textContent = `Day ${i} (${currentTemp}°C) → Next Warmer: Day ${targetIdx} (${targetTemp}°C)`;
+            detailText.innerHTML = `
+                The first future day with a higher temperature is <strong>Day ${targetIdx} (${targetTemp}°C)</strong>, which is higher than <strong>Day ${i} (${currentTemp}°C)</strong>.
+                Waiting time = <strong>${targetIdx} - ${i} = <span class="text-emerald-400 font-bold">${wait} day${wait > 1 ? 's' : ''}</span></strong>.
+                <span class="text-slate-400 block mt-0.5">(Hindi: Day ${i} ke baad agla warmer din Day ${targetIdx} hai &rarr; Wait = ${wait} din.)</span>
+            `;
+        } else {
+            detailIcon.textContent = '❄️';
+            detailTitle.textContent = `Day ${i} (${currentTemp}°C) → No Warmer Day Found`;
+            detailText.innerHTML = `
+                No future day in the remaining days has a temperature strictly greater than <strong>${currentTemp}°C</strong>.
+                Result = <span class="font-bold text-white">0 days</span>.
+                <span class="text-slate-400 block mt-0.5">(Hindi: Day ${i} ke aage koi warmer temperature nahi hai &rarr; Wait = 0 din.)</span>
+            `;
+        }
+    }
+
+    function resetHighlights() {
+        const allCards = document.querySelectorAll('.day-card');
+        allCards.forEach(c => {
+            c.classList.remove('ring-2', 'ring-amber-500', 'ring-emerald-500', 'opacity-30', 'bg-amber-500/10', 'bg-emerald-500/10');
+        });
+        document.getElementById('detailIcon').textContent = '💡';
+        document.getElementById('detailTitle').textContent = 'Interactive Inspector';
+        document.getElementById('detailText').textContent = 'Hover over or click any day card to highlight its next warmer day and view the step-by-step reasoning.';
+    }
+
+    // =======================================================
+    // Database History Loading & Display
+    // =======================================================
+    async function loadHistory() {
+        const container = document.getElementById('historyContainer');
+        const spinner = document.getElementById('historySpinner');
+        const countBadge = document.getElementById('historyCountBadge');
+
+        spinner.classList.remove('hidden');
+
+        try {
+            const res = await fetch('/api/temperatures/history');
+            if (res.ok) {
+                const list = await res.json();
+                countBadge.textContent = list.length;
+
+                if (!list || list.length === 0) {
+                    container.innerHTML = `
+                        <div class="text-center py-6 text-xs text-slate-500 bg-slate-950/40 rounded-xl border border-slate-800">
+                            No analysis history recorded yet. Run an analysis above to save entries into the database.
+                        </div>
+                    `;
+                } else {
+                    container.innerHTML = `
+                        <div class="overflow-x-auto rounded-xl border border-slate-800">
+                            <table class="w-full text-left text-xs font-mono">
+                                <thead class="bg-slate-950 text-slate-400 border-b border-slate-800 uppercase text-[10px]">
+                                    <tr>
+                                        <th class="py-2.5 px-3">#</th>
+                                        <th class="py-2.5 px-3">Temperatures</th>
+                                        <th class="py-2.5 px-3">Waiting Days</th>
+                                        <th class="py-2.5 px-3 hidden sm:table-cell">Algorithm</th>
+                                        <th class="py-2.5 px-3 text-right">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-800/60 bg-slate-950/40 text-slate-300">
+                                    ${list.map(item => {
+                                        const cleanTemps = item.temperatures.replace(/[[\]]/g, '');
+                                        return `
+                                            <tr class="hover:bg-slate-800/40 transition">
+                                                <td class="py-2 px-3 text-slate-500 font-bold">${item.id || '-'}</td>
+                                                <td class="py-2 px-3 text-white truncate max-w-[180px]">${item.temperatures}</td>
+                                                <td class="py-2 px-3 text-amber-400 truncate max-w-[150px]">${item.waitingDays}</td>
+                                                <td class="py-2 px-3 text-slate-400 hidden sm:table-cell">${item.algorithm} (${item.timeComplexity})</td>
+                                                <td class="py-2 px-3 text-right">
+                                                    <button 
+                                                        onclick="replayHistory('${cleanTemps}')"
+                                                        class="px-2.5 py-1 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 font-sans font-semibold text-[11px] transition"
+                                                    >
+                                                        Replay
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        `;
+                                    }).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    `;
+                }
+            } else {
+                container.innerHTML = `
+                    <div class="text-center py-4 text-xs text-slate-500">
+                        History endpoint returned status ${res.status}.
+                    </div>
+                `;
+            }
+        } catch (err) {
+            container.innerHTML = `
+                <div class="text-center py-4 text-xs text-slate-500 bg-slate-950/40 rounded-xl border border-slate-800">
+                    <span class="text-amber-400 font-semibold">Offline Mode:</span> Server database history is unavailable when offline.
+                </div>
+            `;
+            countBadge.textContent = '0';
+        } finally {
+            spinner.classList.add('hidden');
+        }
+    }
+
+    function replayHistory(tempsStr) {
+        document.getElementById('tempInput').value = tempsStr;
+        dismissError();
+        analyzeTemperatures();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // Auto-run on page load
+    window.addEventListener('DOMContentLoaded', () => {
+        analyzeTemperatures();
+        loadHistory();
+    });
+</script>
+</body>
+</html>

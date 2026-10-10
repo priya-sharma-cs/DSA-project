@@ -1,0 +1,7 @@
+**/target/
+**/out/
+**/bin/
+**/.idea/
+**/.vscode/
+*.class
+*.log

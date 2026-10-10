@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Queue Visualizer — FIFO Data Structure</title>
+    <meta name="description" content="Interactive visualization of a First-In, First-Out (FIFO) Queue data structure implemented using a custom singly linked list in Java.">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-layout">
+        <!-- TOP HEADER -->
+        <header class="app-header">
+            <div class="header-content">
+                <div class="logo-area">
+                    <div class="logo-icon">
+                        <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="2" y="5" width="20" height="14" rx="3"></rect>
+                            <path d="M6 12h.01M10 12h.01M14 12h.01M18 12h.01"></path>
+                            <path d="M2 9h20"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <h1 class="app-title">Queue Visualizer</h1>
+                        <p class="app-subtitle">FIFO (First-In, First-Out) Data Structure &bull; Java Backend</p>
+                    </div>
+                </div>
+
+                <div class="header-badges">
+                    <span class="badge badge-accent">Singly Linked List</span>
+                    <span class="badge badge-indigo">O(1) Head &amp; Tail</span>
+                    <span id="dbStatusBadge" class="badge badge-muted">Checking Database...</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- MAIN CONTAINER -->
+        <main class="main-content">
+            <!-- TOP METRICS ROW -->
+            <section class="metrics-grid">
+                <div class="metric-card">
+                    <div class="metric-icon icon-primary">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 7l-8-4-8 4m16 5l-8 4-8-4m16 5l-8 4-8-4"></path></svg>
+                    </div>
+                    <div>
+                        <span class="metric-label">Current Queue Size</span>
+                        <div class="metric-value" id="metricSize">0</div>
+                    </div>
+                </div>
+
+                <div class="metric-card">
+                    <div class="metric-icon icon-success">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>
+                    </div>
+                    <div>
+                        <span class="metric-label">Queue State</span>
+                        <div class="metric-value status-text" id="metricState">EMPTY</div>
+                    </div>
+                </div>
+
+                <div class="metric-card">
+                    <div class="metric-icon icon-info">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"></path></svg>
+                    </div>
+                    <div>
+                        <span class="metric-label">Front Element (Head)</span>
+                        <div class="metric-value text-truncate" id="metricFront">—</div>
+                    </div>
+                </div>
+
+                <div class="metric-card">
+                    <div class="metric-icon icon-warning">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"></path></svg>
+                    </div>
+                    <div>
+                        <span class="metric-label">Rear Element (Tail)</span>
+                        <div class="metric-value text-truncate" id="metricRear">—</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- QUEUE VISUALIZATION CANVAS -->
+            <section class="card canvas-card">
+                <div class="card-header">
+                    <div class="card-title-group">
+                        <h2 class="card-title">Live Queue Visualization</h2>
+                        <span class="card-hint">Elements enter at <strong>REAR (Tail)</strong> and leave from <strong>FRONT (Head)</strong></span>
+                    </div>
+                    <div class="canvas-legend">
+                        <span class="legend-item"><span class="legend-dot dot-front"></span> FRONT</span>
+                        <span class="legend-item"><span class="legend-dot dot-rear"></span> REAR</span>
+                    </div>
+                </div>
+
+                <div class="queue-canvas-wrapper">
+                    <!-- Flow indicator left (FRONT / Exit) -->
+                    <div class="flow-marker flow-exit">
+                        <span class="flow-label">EXIT &larr; FRONT</span>
+                        <span class="flow-sub">Dequeue Point</span>
+                    </div>
+
+                    <!-- Scrollable items stage -->
+                    <div id="queueStage" class="queue-stage">
+                        <!-- Items dynamically injected here -->
+                        <div class="queue-empty-state">
+                            <div class="empty-icon-wrap">
+                                <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" stroke-width="1.5">
+                                    <path d="M9 17h6M9 13h6M9 9h6M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h14a2 2 0 012 2v14a2 2 0 01-2 2z"></path>
+                                </svg>
+                            </div>
+                            <p class="empty-primary">The queue is currently empty</p>
+                            <p class="empty-secondary">Enter a value below and click <strong>Enqueue</strong> to start the visual pipeline.</p>
+                        </div>
+                    </div>
+
+                    <!-- Flow indicator right (REAR / Entry) -->
+                    <div class="flow-marker flow-entry">
+                        <span class="flow-label">REAR &larr; ENTRY</span>
+                        <span class="flow-sub">Enqueue Point</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- CONTROL PANEL GRID -->
+            <div class="controls-grid">
+                <!-- ENQUEUE CARD -->
+                <section class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">1. Enqueue Operation</h2>
+                        <span class="badge badge-accent">O(1)</span>
+                    </div>
+                    <p class="card-desc">Appends a new element to the tail of the singly linked list.</p>
+
+                    <form id="enqueueForm" onsubmit="handleEnqueue(event)" class="enqueue-form">
+                        <div class="input-group">
+                            <input
+                                type="text"
+                                id="enqueueInput"
+                                class="form-input"
+                                placeholder="Enter value (e.g. Alice, Process-101)..."
+                                autocomplete="off"
+                                maxlength="255"
+                                required
+                            />
+                            <button type="submit" id="btnEnqueue" class="btn btn-primary">
+                                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"></path></svg>
+                                <span>Enqueue</span>
+                            </button>
+                        </div>
+                    </form>
+
+                    <div class="quick-presets">
+                        <span class="presets-label">Quick samples:</span>
+                        <button type="button" class="btn-chip" onclick="quickFill('Job-A')">+ Job-A</button>
+                        <button type="button" class="btn-chip" onclick="quickFill('Client-42')">+ Client-42</button>
+                        <button type="button" class="btn-chip" onclick="quickFill('Order #999')">+ Order #999</button>
+                        <button type="button" class="btn-chip" onclick="quickRandom()">+ Random Int</button>
+                    </div>
+                </section>
+
+                <!-- QUEUE ACTIONS CARD -->
+                <section class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">2. Queue Operations</h2>
+                        <span class="card-hint">Standard FIFO Methods</span>
+                    </div>
+                    <p class="card-desc">Execute fundamental queue operations directly on the Java backend.</p>
+
+                    <div class="action-buttons-grid">
+                        <button type="button" id="btnDequeue" class="btn btn-danger" onclick="handleDequeue()">
+                            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l-7 7 7 7"></path></svg>
+                            <span>Dequeue (Poll)</span>
+                        </button>
+
+                        <button type="button" id="btnPeek" class="btn btn-info" onclick="handlePeek()">
+                            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                            <span>Peek (Front)</span>
+                        </button>
+
+                        <button type="button" id="btnClear" class="btn btn-warning" onclick="handleClearQueue()">
+                            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"></path></svg>
+                            <span>Clear Queue</span>
+                        </button>
+
+                        <button type="button" id="btnRefresh" class="btn btn-secondary" onclick="fetchQueue()">
+                            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6"></path><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"></path></svg>
+                            <span>Sync State</span>
+                        </button>
+                    </div>
+                </section>
+            </div>
+
+            <!-- RESULT & ALGORITHM DETAILS ROW -->
+            <div class="info-grid">
+                <!-- OPERATION RESULT CARD -->
+                <section class="card result-section">
+                    <div class="card-header">
+                        <h2 class="card-title">Console Output &amp; Status</h2>
+                        <span id="resultTime" class="timestamp">Ready</span>
+                    </div>
+                    <div id="resultBox" class="result-box info">
+                        <div class="result-icon" id="resultIcon">
+                            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4M12 8h.01"></path></svg>
+                        </div>
+                        <div class="result-text" id="resultText">System ready. Enqueue or Dequeue items to view server response.</div>
+                    </div>
+                </section>
+
+                <!-- THEORY & TIME COMPLEXITY CARD -->
+                <section class="card theory-section">
+                    <div class="card-header">
+                        <h2 class="card-title">Academic DSA Reference</h2>
+                        <span class="badge badge-accent">Theory</span>
+                    </div>
+
+                    <div class="theory-content">
+                        <p class="theory-intro">
+                            A <strong>Queue</strong> is a linear data structure operating under the <strong>FIFO (First-In, First-Out)</strong> principle.
+                            The first element inserted into the queue is the first one to be removed.
+                        </p>
+
+                        <div class="complexity-table-wrapper">
+                            <table class="complexity-table">
+                                <thead>
+                                    <tr>
+                                        <th>Operation</th>
+                                        <th>Method</th>
+                                        <th>Complexity</th>
+                                        <th>Description</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><strong>Enqueue</strong></td>
+                                        <td><code>tail.next = new Node()</code></td>
+                                        <td><span class="complexity-pill">O(1)</span></td>
+                                        <td>Inserts at tail pointer</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Dequeue</strong></td>
+                                        <td><code>head = head.next</code></td>
+                                        <td><span class="complexity-pill">O(1)</span></td>
+                                        <td>Removes from head pointer</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Peek</strong></td>
+                                        <td><code>head.data</code></td>
+                                        <td><span class="complexity-pill">O(1)</span></td>
+                                        <td>Reads head without removing</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>isEmpty</strong></td>
+                                        <td><code>head == null</code></td>
+                                        <td><span class="complexity-pill">O(1)</span></td>
+                                        <td>Checks if size is 0</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- DATABASE AUDIT LOG SECTION -->
+            <section class="card history-section">
+                <div class="card-header">
+                    <div>
+                        <h2 class="card-title">Database Audit History</h2>
+                        <p class="card-desc">Persistent transaction log recorded in MySQL <code>queue_history</code> table.</p>
+                    </div>
+
+                    <div class="history-controls">
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="fetchHistory()">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6"></path><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"></path></svg>
+                            <span>Refresh Log</span>
+                        </button>
+                        <button type="button" class="btn btn-danger-outline btn-sm" onclick="handleClearHistory()">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                            <span>Clear DB History</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Database status alert box (dynamic) -->
+                <div id="dbNotice" class="db-notice" style="display: none;">
+                    <div class="notice-icon">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                    </div>
+                    <div class="notice-text">
+                        <strong>MySQL Offline:</strong> Queue operations operate 100% in-memory via <code>CustomQueue</code>. Persistent database logging will resume automatically when MySQL is started.
+                    </div>
+                </div>
+
+                <div class="history-table-wrapper">
+                    <table class="history-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 70px;">ID</th>
+                                <th style="width: 140px;">Operation</th>
+                                <th>Element Value</th>
+                                <th style="width: 220px;">Timestamp</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historyTableBody">
+                            <tr>
+                                <td colspan="4" class="text-center text-muted py-4">Click "Refresh Log" or perform queue operations to view transaction history.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+
+        <!-- FOOTER -->
+        <footer class="app-footer">
+            <div class="footer-content">
+                <p>Queue Data Structure Project &bull; Academic Computer Science Submission</p>
+                <p class="text-muted">Built with Java <code>CustomQueue</code> + Vanilla HTML5/CSS/JavaScript + Optional MySQL</p>
+            </div>
+        </footer>
+    </div>
+
+    <!-- MAIN SCRIPT -->
+    <script src="script.js"></script>
+</body>
+</html>
